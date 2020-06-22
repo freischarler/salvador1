@@ -47,6 +47,7 @@ void IRAM_ATTR detectsMovement() {
   Serial.println("MOTION DETECTED!!!");
   digitalWrite(led, LOW);
   bandera_sensar=false;
+  sanitizador_on=false;
 }
 
 //Structure example to send data
@@ -70,6 +71,19 @@ struct_order incomingReadings;
 
 
 void read_sensores(){
+    h = dht.readHumidity();
+    // Read temperature as Celsius (the default)
+    t = dht.readTemperature();
+    // Read temperature as Fahrenheit (isFahrenheit = true)
+    //float f = dht.readTemperature(true);
+      delay(3000);
+    // Check if any reads failed and exit early (to try again).
+    if (isnan(h) || isnan(t)) {
+      Serial.println(F("Failed to read from DHT sensor!"));
+      return;
+    }  
+  
+  /*
   if (bandera_sensar==false){
     Sensor_Readings.temp = temperature;
     Sensor_Readings.hum = humidity;
@@ -103,6 +117,7 @@ void read_sensores(){
       return;
     }  
   } 
+ */
 }
 
 
@@ -201,7 +216,7 @@ void getReadings(){
     sanitizador_on=true;
   }
 
-  if(incomingTrama=="continuar"){
+  if(incomingTrama=="continuar" && sanitizador_on==true){
     t_uv_start=millis();
     timer_uv_running=true;
   }
@@ -211,13 +226,16 @@ void getReadings(){
     sanitizador_on=false;
     timer_uv_running=false;
   }
+
+
   
-  if(incomingTrama=="apagar"){
-    Serial.println("SATINIZADOR OFF");
+  if(incomingTrama=="apagar" || sanitizador_on==false){
+    Serial.println("SANITIZADOR OFF");
     sanitizador_on=false;
   }
   
   read_sensores();
+  
   temperature = t;
   humidity = h;
   if(sanitizador_on)

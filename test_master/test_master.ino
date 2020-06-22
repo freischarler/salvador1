@@ -1,5 +1,5 @@
 //MASTER MAC: 30:AE:A4:FF:3E:6C
-//SLAVE MAC: 30:AE:A4:FE:3C:30
+//SLAVE MAC: 30:AE:A4:FE:4D:30
 
 #include <LiquidCrystal_I2C.h>
 #include <esp_now.h>
@@ -13,7 +13,7 @@
 #define pulsador_fin 34
 //#define RELE 23
 
-uint8_t broadcastAddress[] = {0x30, 0xAE, 0xA4, 0xFE, 0x3C, 0x30};
+uint8_t broadcastAddress[] = {0x30, 0xAE, 0xA4, 0xFE, 0x4D, 0x30};
 
 
 // Define variables to store BME280 readings to be sent
@@ -36,7 +36,9 @@ int value=0;
 bool accionar=false;
 bool bool_pulsado=false;
 bool control=false; //constante para controlar la comunicacion
-int k=15;
+bool sanitizador_on=false; //constante si esta on o off el sanitizador
+int k=30;
+
 long timer = 1000*1;
 uint32_t t_start = 0;
 uint32_t t_uv_start =0;
@@ -206,8 +208,7 @@ void apagar(){
   }
 }
 
-void iniciar_sanitizador(int tiempo){
-  
+void iniciar_sanitizador(int tiempo){ 
   if(control==false){
     sendOrder.time_on=tiempo;
     sendOrder.trama="iniciar";
@@ -227,61 +228,76 @@ void iniciar_sanitizador(int tiempo){
     } 
   }
 
-  
-  
-  int bandera=true;
-  while(bandera=true){
-    // ON SANITIZADOR 
-  if(!timer_uv_running){
-      //digitalWrite(RELE,HIGH);
-      t_uv_start=millis();
-      timer_uv_running=true;
+  if(sanitizador_on==false){
+    while(!sanitizador_on){  //espero confirmacion que esta prendido
+      if(incomingState=="on"){
+        sanitizador_on=true;
+        delay(500);
+      }          
+    }
   }
 
-  // OFF SANITIZADOR
-  if (timer_uv_running==true && (millis()-t_uv_start)>tiempo){
+  while(sanitizador_on){
+    // ON SANITIZADOR 
+    if(!timer_uv_running){
+      //digitalWrite(RELE,HIGH);
+        t_uv_start=millis();
+        timer_uv_running=true;
+    }
+
+    // OFF SANITIZADOR
+    if (timer_uv_running==true && (millis()-t_uv_start)>tiempo){
       apagar();
       //digitalWrite(RELE,LOW);
       timer_uv_running=false;
       timer_running=false;
-      bandera=false;
+      sanitizador_on=false;
       return;
-  }
+    }
+
+    if (incomingState=="off"){
+      return;
+    }
 
   // DISPLAY DE VARIABLES HUMEDAD Y TEMPERATURA
-  if (!timer_running) {
+    if (!timer_running) {
       // Timer is not already running, so capture the start time
       t_start = millis();
       timer_running = true;
-  }
+    }
   
-  if (timer_running==true && (millis()-t_start)>t_min){
-      //display_TH();
+    if (timer_running==true && (millis()-t_start)>t_min){
       timer_running = false;
-  }
+    }
 
-  // OFF UV EN CASO DE APRETAR EL BOTON DE FIN
-  if (digitalRead(pulsador_fin)==HIGH){
+    // OFF UV EN CASO DE APRETAR EL BOTON DE FIN
+    if (digitalRead(pulsador_fin)==HIGH){
       apagar();
       //digitalWrite(RELE,LOW);
       timer_uv_running=false;
       timer_running=false;
-      bandera=false;
+      sanitizador_on=false;
       return;
-  }
+    }
 
-  lcd.clear();
-  lcd.setCursor(0,0);
-  lcd.print((millis()-t_uv_start));
-  lcd.setCursor(0,1);
-  lcd.print(incomingTemp);
-  lcd.print(" ");
-  lcd.print(incomingHum);
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print((millis()-t_uv_start));
+    lcd.setCursor(0,1);
+    lcd.print(incomingTemp);
+    lcd.print(" ");
+    lcd.print(incomingHum);
 
-  delay(100);  
+    delay(2000);
+  
+  
+    sendOrder.time_on=tiempo;
+    sendOrder.trama="continuar";
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sendOrder, sizeof(sendOrder));   
   }
   return;
 }
+
 
 bool botones_on(){
   for (int i = 0; i < totalSwitches; i++) {
