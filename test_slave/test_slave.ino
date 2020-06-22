@@ -21,9 +21,9 @@ float t=0;
 uint8_t broadcastAddress[] = {0x30, 0xAE, 0xA4, 0xFF, 0x3E, 0x6C};
 
 // Define variables to store BME280 readings to be sent
-float temperature;
-float humidity;
-String status_ok;
+float temperature=0;
+float humidity=0;
+String status_ok="";
 
 // Define variables to store incoming readings
 float incomingTime;
@@ -143,6 +143,7 @@ void setup() {
 }
  
 void loop() {
+ 
   getReadings();
  
   // Set values to send
@@ -164,6 +165,8 @@ void loop() {
 }
 
 void getReadings(){
+  if(incomingReadings.trama==")
+  
   temperature = 30;
   humidity = 20;
   status_ok = "hola";
