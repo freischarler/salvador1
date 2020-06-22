@@ -18,6 +18,10 @@ bool sanitizador_on=false;
 float h=0;
 float t=0;
 
+uint32_t t_uv_start =0;
+uint8_t timer_uv_running = false;
+int tiempo=5000;
+
 // REPLACE WITH THE MAC Address of your receiver 
 uint8_t broadcastAddress[] = {0x30, 0xAE, 0xA4, 0xFF, 0x3E, 0x6C};
 
@@ -45,26 +49,6 @@ void IRAM_ATTR detectsMovement() {
   bandera_sensar=false;
 }
 
-void read_sensores(){
-  if (bandera_sensar==false){
-    delay(10000);
-    bandera_sensar=true;
-  }
-  if (bandera_sensar==true){
-    h = dht.readHumidity();
-    // Read temperature as Celsius (the default)
-    t = dht.readTemperature();
-    // Read temperature as Fahrenheit (isFahrenheit = true)
-    //float f = dht.readTemperature(true);
-      delay(3000);
-    // Check if any reads failed and exit early (to try again).
-    if (isnan(h) || isnan(t)) {
-      Serial.println(F("Failed to read from DHT sensor!"));
-      return;
-    }  
-  } 
-}
-
 //Structure example to send data
 //Must match the receiver structure
 typedef struct struct_message {
@@ -83,6 +67,45 @@ struct_message Sensor_Readings;
 
 // Create a struct_message to hold incoming sensor readings
 struct_order incomingReadings;
+
+
+void read_sensores(){
+  if (bandera_sensar==false){
+    Sensor_Readings.temp = temperature;
+    Sensor_Readings.hum = humidity;
+    Sensor_Readings.st = "off";
+    bool aux=false;
+    // Send message via ESP-NOW
+    while(!aux){
+      esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &Sensor_Readings, sizeof(Sensor_Readings));
+
+    if (result == ESP_OK) {
+      Serial.println("Sent with success");
+    }
+    else {
+      Serial.println("Error sending the data");
+      }
+      delay(5000);
+    }
+    bandera_sensar=true;
+  }
+  
+  if (bandera_sensar==true){
+    h = dht.readHumidity();
+    // Read temperature as Celsius (the default)
+    t = dht.readTemperature();
+    // Read temperature as Fahrenheit (isFahrenheit = true)
+    //float f = dht.readTemperature(true);
+      delay(3000);
+    // Check if any reads failed and exit early (to try again).
+    if (isnan(h) || isnan(t)) {
+      Serial.println(F("Failed to read from DHT sensor!"));
+      return;
+    }  
+  } 
+}
+
+
 
 // Callback when data is sent
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
@@ -106,6 +129,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   Serial.print(incomingTime);
   Serial.print(" ");
   Serial.println(incomingTrama);
+  
 }
  
 void setup() {
@@ -177,6 +201,17 @@ void getReadings(){
     sanitizador_on=true;
   }
 
+  if(incomingTrama=="continuar"){
+    t_uv_start=millis();
+    timer_uv_running=true;
+  }
+
+  if (timer_uv_running==true && (millis()-t_uv_start)>tiempo){
+    Serial.println("SATINIZADOR OFF");
+    sanitizador_on=false;
+    timer_uv_running=false;
+  }
+  
   if(incomingTrama=="apagar"){
     Serial.println("SATINIZADOR OFF");
     sanitizador_on=false;
