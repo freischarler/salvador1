@@ -52,7 +52,7 @@ typedef struct struct_message {
 } struct_message;
 
 typedef struct struct_order {
-    long time_on;
+    int time_on;
     String trama;
 } struct_order;
 
@@ -84,6 +84,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   Serial.print(incomingTemp);
   Serial.print(" ");
   Serial.println(incomingHum);
+  Serial.println(incomingState);
 }
 
 void initGPIOs() {
@@ -207,7 +208,7 @@ void apagar(){
 
 void iniciar_sanitizador(int tiempo){
   
-  if(control=false){
+  if(control==false){
     sendOrder.time_on=tiempo;
     sendOrder.trama="iniciar";
   

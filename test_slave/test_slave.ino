@@ -74,7 +74,7 @@ typedef struct struct_message {
 } struct_message;
 
 typedef struct struct_order{
-  long time_on;
+  int time_on;
   String trama;
 } struct_order;
 
@@ -103,6 +103,9 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   Serial.println(len);
   incomingTime = incomingReadings.time_on;
   incomingTrama = incomingReadings.trama;
+  Serial.print(incomingTime);
+  Serial.print(" ");
+  Serial.println(incomingTrama);
 }
  
 void setup() {
@@ -164,6 +167,8 @@ void loop() {
   //updateDisplay();
   delay(5000);
 }
+
+
 
 void getReadings(){
 
