@@ -14,6 +14,7 @@ DHT dht(DHTPIN, DHTTYPE);
 const int motionSensor = 27;
 const int led = 26;
 bool bandera_sensar=true;
+bool sanitizador_on=false;
 float h=0;
 float t=0;
 
@@ -165,9 +166,22 @@ void loop() {
 }
 
 void getReadings(){
-  if(incomingReadings.trama==")
+
+  if(incomingTrama=="iniciar"){
+    Serial.println("INICIANDO SATINIZADOR PELIGRO!!");
+    sanitizador_on=true;
+  }
+
+  if(incomingTrama=="apagar"){
+    Serial.println("SATINIZADOR OFF");
+    sanitizador_on=false;
+  }
   
-  temperature = 30;
-  humidity = 20;
-  status_ok = "hola";
+  read_sensores();
+  temperature = t;
+  humidity = h;
+  if(sanitizador_on)
+    status_ok = "on";
+  else
+    status_ok = "off";
 }
