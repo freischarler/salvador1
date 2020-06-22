@@ -35,6 +35,7 @@ const int totalSwitches = sizeof(switchGPIOs)/sizeof(switchGPIOs[0]);
 int value=0;
 bool accionar=false;
 bool bool_pulsado=false;
+bool control=false; //constante para controlar la comunicacion
 int k=15;
 long timer = 1000*1;
 uint32_t t_start = 0;
@@ -50,9 +51,15 @@ typedef struct struct_message {
     String st;
 } struct_message;
 
+typedef struct struct_order {
+    long time_on;
+    String trama;
+} struct_order;
+
 // Create a struct_message to hold incoming sensor readings
 struct_message incomingReadings;
 
+struct_order sendOrder;
 
 // Callback when data is sent
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
@@ -175,7 +182,52 @@ void show_Menu() {
     } 
 }
 
+void apagar(){
+  sendOrder.time_on=0;
+  sendOrder.trama="apagar";
+  bool auxiliar=false;
+  
+  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sendOrder, sizeof(sendOrder));
+
+  while(!auxiliar){
+    if (result == ESP_OK) {
+      Serial.println("Sent with success"); 
+      auxiliar=true;
+      control=false;
+    }
+    else {
+      Serial.println("Error sending the data");
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("ERROR APAGAR");
+      delay(5000);
+    }     
+  }
+}
+
 void iniciar_sanitizador(int tiempo){
+  
+  if(control=false){
+    sendOrder.time_on=tiempo;
+    sendOrder.trama="iniciar";
+  
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sendOrder, sizeof(sendOrder));
+   
+    if (result == ESP_OK) {
+      Serial.println("Sent with success");
+      control=true;
+    }
+    else {
+      Serial.println("Error sending the data");
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("ERROR SEND");
+      delay(5000);
+    } 
+  }
+
+  
+  
   int bandera=true;
   while(bandera=true){
     // ON SANITIZADOR 
@@ -187,6 +239,7 @@ void iniciar_sanitizador(int tiempo){
 
   // OFF SANITIZADOR
   if (timer_uv_running==true && (millis()-t_uv_start)>tiempo){
+      apagar();
       //digitalWrite(RELE,LOW);
       timer_uv_running=false;
       timer_running=false;
@@ -208,6 +261,7 @@ void iniciar_sanitizador(int tiempo){
 
   // OFF UV EN CASO DE APRETAR EL BOTON DE FIN
   if (digitalRead(pulsador_fin)==HIGH){
+      apagar();
       //digitalWrite(RELE,LOW);
       timer_uv_running=false;
       timer_running=false;
