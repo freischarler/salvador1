@@ -17,14 +17,14 @@ uint8_t broadcastAddress[] = {0x30, 0xAE, 0xA4, 0xFE, 0x4D, 0x30};
 
 
 // Define variables to store BME280 readings to be sent
-float temperature;
-float humidity;
-String state;
+float temperature=0;
+float humidity=0;
+String state="";
 
 // Define variables to store incoming readings
-float incomingTemp;
-float incomingHum;
-String incomingState;
+float incomingTemp=0;
+float incomingHum=0;
+String incomingState="";
 
 // Variable to store if sending data was successful
 String success;
@@ -43,7 +43,7 @@ long timer = 1000*1;
 uint32_t t_start = 0;
 uint32_t t_uv_start =0;
 uint32_t t_min = 2000;
-uint32_t d_finish=5000; //tiempo mostrando que finalizo el SANITIZADOR
+uint32_t d_finish=10000; //tiempo mostrando que finalizo el SANITIZADOR
 uint8_t timer_running = false;
 uint8_t timer_uv_running = false;
 
@@ -107,7 +107,7 @@ void configuracion_rapida(){
 void show_Menu() {
    lcd.clear(); lcd.setCursor(0,0);
    Serial.println("Iniciando...");
-   delay(500);
+   delay(2000);
    int menu=1;
    int old_menu=0;
    while(1)
@@ -152,8 +152,17 @@ void show_Menu() {
                 delay(100);
                 break;
           }
+          
+          
           accionar=false;
         }
+
+        lcd.setCursor(0,1);
+        lcd.print(incomingTemp);
+        lcd.print(" ");
+        lcd.print(incomingHum);
+        lcd.print(" ");
+        lcd.print(incomingState);
         
         for (int i = 0; i < totalSwitches; i++) {
           value = digitalRead(switchGPIOs[i]);
@@ -256,6 +265,9 @@ void iniciar_sanitizador(int tiempo){
     }
 
     if (incomingState=="off"){
+      timer_uv_running=false;
+      timer_running=false;
+      sanitizador_on=false;
       return;
     }
 
@@ -287,6 +299,8 @@ void iniciar_sanitizador(int tiempo){
     lcd.print(incomingTemp);
     lcd.print(" ");
     lcd.print(incomingHum);
+    lcd.print(" ");
+    lcd.print(incomingState);
 
     delay(2000);
   
