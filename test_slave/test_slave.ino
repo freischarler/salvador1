@@ -12,7 +12,7 @@
 
 DHT dht(DHTPIN, DHTTYPE);
 const int motionSensor = 27;
-const int led = 26;
+const int RELE = 21;
 bool bandera_sensar=true;
 bool sanitizador_on=false;
 float h=0;
@@ -20,7 +20,12 @@ float t=0;
 
 uint32_t t_uv_start =0;
 uint8_t timer_uv_running = false;
-int tiempo=5000;
+
+uint32_t t_sens_start =0;
+uint8_t t_sens_running = false;
+int t_sens_min=3000;
+
+int tiempo=20000;
 
 // REPLACE WITH THE MAC Address of your receiver 
 uint8_t broadcastAddress[] = {0x30, 0xAE, 0xA4, 0xFF, 0x3E, 0x6C};
@@ -45,7 +50,7 @@ String success;
 // Checks if motion was detected, sets LED HIGH and starts a timer
 void IRAM_ATTR detectsMovement() {
   Serial.println("MOTION DETECTED!!!");
-  digitalWrite(led, LOW);
+  digitalWrite(RELE, HIGH);
   bandera_sensar=false;
   sanitizador_on=false;
 }
@@ -70,54 +75,19 @@ struct_message Sensor_Readings;
 struct_order incomingReadings;
 
 
-void read_sensores(){
-    h = dht.readHumidity();
+void read_sensores(){  
+  h = dht.readHumidity();
     // Read temperature as Celsius (the default)
-    t = dht.readTemperature();
+  t = dht.readTemperature();
     // Read temperature as Fahrenheit (isFahrenheit = true)
     //float f = dht.readTemperature(true);
-      delay(3000);
+      
     // Check if any reads failed and exit early (to try again).
-    if (isnan(h) || isnan(t)) {
-      Serial.println(F("Failed to read from DHT sensor!"));
-      return;
-    }  
-  
-  /*
-  if (bandera_sensar==false){
-    Sensor_Readings.temp = temperature;
-    Sensor_Readings.hum = humidity;
-    Sensor_Readings.st = "off";
-    bool aux=false;
-    // Send message via ESP-NOW
-    while(!aux){
-      esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &Sensor_Readings, sizeof(Sensor_Readings));
-
-    if (result == ESP_OK) {
-      Serial.println("Sent with success");
-    }
-    else {
-      Serial.println("Error sending the data");
-      }
-      delay(5000);
-    }
-    bandera_sensar=true;
+  if (isnan(h) || isnan(t)) {
+    Serial.println(F("Failed to read from DHT sensor!"));
+    return;
   }
-  
-  if (bandera_sensar==true){
-    h = dht.readHumidity();
-    // Read temperature as Celsius (the default)
-    t = dht.readTemperature();
-    // Read temperature as Fahrenheit (isFahrenheit = true)
-    //float f = dht.readTemperature(true);
-      delay(3000);
-    // Check if any reads failed and exit early (to try again).
-    if (isnan(h) || isnan(t)) {
-      Serial.println(F("Failed to read from DHT sensor!"));
-      return;
-    }  
-  } 
- */
+
 }
 
 
@@ -144,6 +114,11 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   Serial.print(incomingTime);
   Serial.print(" ");
   Serial.println(incomingTrama);
+
+  if(incomingTrama=="continuar" && sanitizador_on==true){
+  t_uv_start=millis();
+  timer_uv_running=true;  
+  }
   
 }
  
@@ -151,6 +126,10 @@ void setup() {
   // Init Serial Monitor
   Serial.begin(115200);
 
+  pinMode(motionSensor, INPUT_PULLUP);
+  pinMode(RELE, OUTPUT);
+  digitalWrite(RELE, HIGH); 
+  
   // Set device as a Wi-Fi Station
   WiFi.mode(WIFI_STA);
 
@@ -178,68 +157,119 @@ void setup() {
   // Register for a callback function that will be called when data is received
   esp_now_register_recv_cb(OnDataRecv);
 
-  pinMode(motionSensor, INPUT_PULLUP);
+
+  
   // Set motionSensor pin as interrupt, assign interrupt function and set RISING mode
-  attachInterrupt(digitalPinToInterrupt(motionSensor), detectsMovement, RISING);
+  //attachInterrupt(digitalPinToInterrupt(motionSensor), detectsMovement, RISING);
   
   dht.begin();
 }
  
 void loop() {
- 
-  getReadings();
- 
-  // Set values to send
-  Sensor_Readings.temp = temperature;
-  Sensor_Readings.hum = humidity;
-  Sensor_Readings.st = status_ok;
-
-  // Send message via ESP-NOW
-  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &Sensor_Readings, sizeof(Sensor_Readings));
-   
-  if (result == ESP_OK) {
-    Serial.println("Sent with success");
-  }
-  else {
-    Serial.println("Error sending the data");
-  }
-  //updateDisplay();
-  delay(5000);
-}
-
-
-
-void getReadings(){
-
   if(incomingTrama=="iniciar"){
     Serial.println("INICIANDO SATINIZADOR PELIGRO!!");
     sanitizador_on=true;
-  }
-
-  if(incomingTrama=="continuar" && sanitizador_on==true){
-    t_uv_start=millis();
-    timer_uv_running=true;
-  }
-
-  if (timer_uv_running==true && (millis()-t_uv_start)>tiempo){
-    Serial.println("SATINIZADOR OFF");
-    sanitizador_on=false;
-    timer_uv_running=false;
-  }
-
-
-  
-  if(incomingTrama=="apagar" || sanitizador_on==false){
-    Serial.println("SANITIZADOR OFF");
-    sanitizador_on=false;
-  }
-  
-  read_sensores();
-  
-  temperature = t;
-  humidity = h;
-  if(sanitizador_on)
+    digitalWrite(RELE, LOW);  
     status_ok = "on";
-  else
-    status_ok = "off";
+    Sensor_Readings.temp = temperature;
+    Sensor_Readings.hum = humidity;
+    Sensor_Readings.st = status_ok;
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &Sensor_Readings, sizeof(Sensor_Readings));
+    delay(5000);
+
+    bool bandera=true;
+    while(bandera){
+      if(incomingTrama=="apagar" || sanitizador_on==false){
+      Serial.println("SANITIZADOR OFF");
+      sanitizador_on=false;
+      bandera=false;
+      }
+
+      if (!t_sens_running){
+      // Timer is not already running, so capture the start time
+        t_sens_start = millis();
+        t_sens_running = true;
+      }
+    
+      if (t_sens_running==true && (millis()-t_sens_start)>t_sens_min){
+        read_sensores();
+        t_sens_running = false;
+      }
+
+      
+
+      temperature = t;
+      humidity = h;
+  
+
+        
+
+
+
+
+      if (timer_uv_running==true && (millis()-t_uv_start)>tiempo){
+        Serial.println("SATINIZADOR OFF");
+        sanitizador_on=false;
+        timer_uv_running=false;
+        bandera=false;
+      }
+
+      if(sanitizador_on){
+        digitalWrite(RELE, LOW);
+        status_ok = "on";
+      } 
+      else{
+        status_ok = "off";
+        digitalWrite(RELE, HIGH); 
+        bandera=false;  
+      } 
+           
+      // Set values to send
+      Sensor_Readings.temp = temperature;
+      Sensor_Readings.hum = humidity;
+      Sensor_Readings.st = status_ok;
+
+      // Send message via ESP-NOW
+      esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &Sensor_Readings, sizeof(Sensor_Readings));
+   
+      if (result == ESP_OK) {
+        Serial.println("Sent with success");
+      }
+      else {
+        Serial.println("Error sending the data");
+      }
+      delay(2000);  
+    }
+  }
+  else{
+
+          if (!t_sens_running){
+      // Timer is not already running, so capture the start time
+        t_sens_start = millis();
+        t_sens_running = true;
+      }
+    
+      if (t_sens_running==true && (millis()-t_sens_start)>t_sens_min){
+        read_sensores();
+        t_sens_running = false;
+      }
+        // Set values to send
+    Sensor_Readings.temp = temperature;
+    Sensor_Readings.hum = humidity;
+    Sensor_Readings.st = status_ok;
+
+      // Send message via ESP-NOW
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &Sensor_Readings, sizeof(Sensor_Readings));
+   
+    if (result == ESP_OK) {
+      Serial.println("Sent with success");
+    }
+    else {
+      Serial.println("Error sending the data");
+    }
+      delay(1500);  
+    }
 }
+
+
+  

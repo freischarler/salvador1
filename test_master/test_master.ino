@@ -43,7 +43,9 @@ long timer = 1000*1;
 uint32_t t_start = 0;
 uint32_t t_uv_start =0;
 uint32_t t_min = 2000;
-uint32_t d_finish=10000; //tiempo mostrando que finalizo el SANITIZADOR
+uint32_t tiempo_espera = 10000; //tiempo de espera de respuesta
+
+uint32_t d_finish=2000; //tiempo mostrando que finalizo el SANITIZADOR
 uint8_t timer_running = false;
 uint8_t timer_uv_running = false;
 
@@ -65,8 +67,8 @@ struct_order sendOrder;
 
 // Callback when data is sent
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-  Serial.print("\r\nLast Packet Send Status:\t");
-  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+  //Serial.print("\r\nLast Packet Send Status:\t");
+  //Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
   if (status ==0){
     success = "Delivery Success :)";
   }
@@ -106,8 +108,8 @@ void configuracion_rapida(){
 
 void show_Menu() {
    lcd.clear(); lcd.setCursor(0,0);
-   Serial.println("Iniciando...");
-   delay(2000);
+   lcd.print("Iniciando...");
+   delay(3000);
    int menu=1;
    int old_menu=0;
    while(1)
@@ -177,7 +179,7 @@ void show_Menu() {
               }
             }
             if(i==0) accionar=true;
-            //if(i==2) accionar=true;
+            
             if(i==1) {
               if(menu==1){
                 old_menu=menu;
@@ -190,64 +192,96 @@ void show_Menu() {
             delay(100);
           }
         //digitalWrite(ssrGPIOs[i], value);
-        }  
-    } 
+        }
+        apagar(); 
+    }
+    
 }
 
 void apagar(){
-  sendOrder.time_on=0;
-  sendOrder.trama="apagar";
-  bool auxiliar=false;
-  
-  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sendOrder, sizeof(sendOrder));
-
-  while(!auxiliar){
-    if (result == ESP_OK) {
-      Serial.println("Sent with success"); 
-      auxiliar=true;
-      control=false;
-    }
-    else {
-      Serial.println("Error sending the data");
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("ERROR APAGAR");
-      delay(5000);
-    }     
-  }
-}
-
-void iniciar_sanitizador(int tiempo){ 
-  if(control==false){
-    sendOrder.time_on=tiempo;
-    sendOrder.trama="iniciar";
+  if (incomingState!="off"){
+    sendOrder.time_on=0;
+    sendOrder.trama="apagar";
+    bool auxiliar=false;
   
     esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sendOrder, sizeof(sendOrder));
-   
+
+    while(!auxiliar){
+      if (result == ESP_OK) {
+        Serial.println("Sent with success"); 
+        auxiliar=true;
+        control=false;
+      }
+      else {
+        Serial.println("Error sending the data");
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("ERROR APAGAR");
+        delay(5000);
+      }     
+  }  
+  }
+  
+}
+
+void iniciar_sanitizador(int tiempo){
+  //Serial.println("BANDERA1");
+  control=false;
+  t_uv_start=millis();
+  
+  while(control==false && incomingState!="on"){
+    sendOrder.time_on=tiempo;
+    sendOrder.trama="iniciar";
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sendOrder, sizeof(sendOrder));
+    //Serial.println("BANDERA2");
     if (result == ESP_OK) {
       Serial.println("Sent with success");
       control=true;
     }
     else {
+      if((millis()-t_uv_start)>tiempo_espera){
+        Serial.print("No conectado");
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("Time out: NC");
+        delay(3000);
+        return;   
+      }    
       Serial.println("Error sending the data");
       lcd.clear();
       lcd.setCursor(0,0);
       lcd.print("ERROR SEND");
-      delay(5000);
-    } 
+      delay(1000);
+      //Serial.println("BANDERA3");
+    }
+    delay(2000);
   }
 
-  if(sanitizador_on==false){
+   sanitizador_on=true;
+  
+  //Serial.println("BANDERA3.5");
+  
+  /*if(sanitizador_on==false){
+    Serial.println("BANDERA3.8");
     while(!sanitizador_on){  //espero confirmacion que esta prendido
+      Serial.println("BANDERA3.9");
       if(incomingState=="on"){
         sanitizador_on=true;
-        delay(500);
-      }          
+        //delay(50);
+        Serial.println("BANDERA4");
+      }
+      else{
+        sendOrder.time_on=tiempo;
+        sendOrder.trama="iniciar";
+        esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sendOrder, sizeof(sendOrder));
+        delay(50);     
+      }     
     }
-  }
+  }*/
 
   while(sanitizador_on){
     // ON SANITIZADOR 
+    //Serial.println("BANDERA5");
     if(!timer_uv_running){
       //digitalWrite(RELE,HIGH);
         t_uv_start=millis();
@@ -258,6 +292,7 @@ void iniciar_sanitizador(int tiempo){
     if (timer_uv_running==true && (millis()-t_uv_start)>tiempo){
       apagar();
       //digitalWrite(RELE,LOW);
+      
       timer_uv_running=false;
       timer_running=false;
       sanitizador_on=false;
@@ -276,10 +311,12 @@ void iniciar_sanitizador(int tiempo){
       // Timer is not already running, so capture the start time
       t_start = millis();
       timer_running = true;
+      //Serial.println("BANDERA6");
     }
   
     if (timer_running==true && (millis()-t_start)>t_min){
       timer_running = false;
+      
     }
 
     // OFF UV EN CASO DE APRETAR EL BOTON DE FIN
@@ -302,9 +339,10 @@ void iniciar_sanitizador(int tiempo){
     lcd.print(" ");
     lcd.print(incomingState);
 
-    delay(2000);
+    delay(1000);
   
-  
+    //Serial.println("BANDERA8");
+    
     sendOrder.time_on=tiempo;
     sendOrder.trama="continuar";
     esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sendOrder, sizeof(sendOrder));   
