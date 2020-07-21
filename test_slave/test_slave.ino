@@ -47,13 +47,13 @@ String success;
  * INTERRUPCION DE IR 
  */
  
-// Checks if motion was detected, sets LED HIGH and starts a timer
+/*/ Checks if motion was detected, sets LED HIGH and starts a timer/*
 void IRAM_ATTR detectsMovement() {
   Serial.println("MOTION DETECTED!!!");
   digitalWrite(RELE, HIGH);
   bandera_sensar=false;
   sanitizador_on=false;
-}
+}*/
 
 //Structure example to send data
 //Must match the receiver structure
@@ -203,7 +203,13 @@ void loop() {
   
 
         
-
+      if(analogRead(motionSensor)>5){
+        Serial.println("MOTION DETECTED!!!");
+        digitalWrite(RELE, HIGH);
+        bandera_sensar=false;
+        sanitizador_on=false;
+      }
+        
 
 
 

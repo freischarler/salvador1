@@ -37,9 +37,9 @@ bool accionar=false;
 bool bool_pulsado=false;
 bool control=false; //constante para controlar la comunicacion
 bool sanitizador_on=false; //constante si esta on o off el sanitizador
-int k=30;
+int k=5;
 
-long timer = 1000*1;
+long timer = 1000*60;
 uint32_t t_start = 0;
 uint32_t t_uv_start =0;
 uint32_t t_min = 2000;
@@ -420,8 +420,9 @@ void configuracion_personalizada(){
     return;
     }
     bool_pulsado=false;   
-    while(botones_on()) //espera hasta que esten en OFF los botones
-    {}   
+    delay(80);
+    //while(botones_on()) //espera hasta que esten en OFF los botones
+    //{}   
   }
   
 }
